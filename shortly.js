@@ -1,7 +1,9 @@
 var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
+var session = require('express-session');
 var bodyParser = require('body-parser');
+var bcrypt = require('bcrypt-nodejs');
 
 
 var db = require('./app/config');
@@ -12,6 +14,11 @@ var Link = require('./app/models/link');
 var Click = require('./app/models/click');
 
 var app = express();
+app.use(session({
+  secret: 'hoomehd',
+  resave: false,
+  saveUninitialized: true
+}));
 
 app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
@@ -22,22 +29,33 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
-
 app.get('/', 
 function(req, res) {
-  res.render('index');
+  if (req.session.user) {
+    res.render('index');
+  } else {
+    res.redirect('/login');
+  }
 });
 
 app.get('/create', 
 function(req, res) {
-  res.render('index');
+  if (req.session.user) {
+    res.render('create');
+  } else {
+    res.redirect('/login');
+  }
 });
 
 app.get('/links', 
 function(req, res) {
-  Links.reset().fetch().then(function(links) {
-    res.status(200).send(links.models);
-  });
+  if (req.session.user) {
+    Links.reset().fetch().then(function(links) {
+      res.status(200).send(links.models);
+    });
+  } else {
+    res.redirect('/login');
+  }
 });
 
 app.post('/links', 
@@ -76,7 +94,66 @@ function(req, res) {
 // Write your authentication routes here
 /************************************************************/
 
+app.get('/logout',
+function(req, res) {
+  req.session.destroy();
+  res.redirect('/login');
+});
 
+app.get('/login',
+function(req, res) {
+  res.render('login');
+});
+
+app.post('/login',
+function(req, res) {
+  // query db for req.body.username to see if username exists
+  // if exists, compare password with bcrypt.compare
+  // else remain in login page with warning: username does not exist
+
+  User.query('where', 'username', '=', req.body.username).fetch().then(function(model) {
+    console.log(model);
+    bcrypt.compare(req.body.password, model.get('password'), function(err, match) {
+      if (err) {
+        console.log('Bcrypt error');
+      } else if (match) {
+        req.session.user = req.body.username;
+        res.redirect('/');
+      } else if (!match) {
+        console.log('Invalid username password combination');
+      }
+    });
+  });
+});
+
+app.get('/signup',
+function(req, res) {
+  res.render('signup');
+});
+
+app.post('/signup',
+function(req, res) {
+  // console.log(req.body);
+  var username = req.body.username;
+  var password = req.body.password;
+  new User({username: username, password: password}).fetch().then(function(exists) {
+    if (exists) {
+      res.status(200).send(exists.attributes);
+    } else {
+      // console.log('exists is: ', exists);
+      Users.create({
+        username: username,
+        password: password
+      })
+      .then(function(newUser) {
+        // console.log('Welcome new user: ', newUser);
+        req.session.user = newUser.attributes.username;
+        res.redirect('/');
+        res.status(200).send(newUser);
+      });
+    }
+  });
+});
 
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
