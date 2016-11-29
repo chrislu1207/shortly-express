@@ -12,29 +12,18 @@ var User = db.Model.extend({
 
     bcrypt.hash(pw, null, null, function(err, hash) {
       if (err) {
-        console.log('Bcrypt error');
+        console.log('Bcrypt error in hash');
       } else {
         db.knex('users')
         .where('username', '=', un)
         .update({
           password: hash
         }).then(function() {
-          console.log('Update complete');
+          // console.log('Update complete');
         });
       }
     });
   }
-
-  // login: function(username, password) {
-  //   bcrypt.compare(password, this.get(password), function(err, match) {
-  //     if (err) {
-  //       console.log('Wrong username/password combination');
-  //     } else if (match) {
-
-  //     }
-  //   });
-  // }
-
 });
 
 module.exports = User;

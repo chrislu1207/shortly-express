@@ -50,8 +50,13 @@ function(req, res) {
 app.get('/links', 
 function(req, res) {
   if (req.session.user) {
-    Links.reset().fetch().then(function(links) {
-      res.status(200).send(links.models);
+    // Links.reset().fetch().then(function(links) {
+    //   res.status(200).send(links.models);
+    // });
+    User.query('where', 'username', '=', req.session.user).fetch().then(function(model) {
+      Links.query('where', 'userId', '=', model.get('id')).fetch().then(function(links) {
+        res.status(200).send(links.models);
+      });
     });
   } else {
     res.redirect('/login');
@@ -76,14 +81,16 @@ function(req, res) {
           console.log('Error reading URL heading: ', err);
           return res.sendStatus(404);
         }
-
-        Links.create({
-          url: uri,
-          title: title,
-          baseUrl: req.headers.origin
-        })
-        .then(function(newLink) {
-          res.status(200).send(newLink);
+        User.query('where', 'username', '=', req.session.user).fetch().then(function(model) {
+          Links.create({
+            url: uri,
+            title: title,
+            baseUrl: req.headers.origin,
+            userId: model.get('id')
+          })
+          .then(function(newLink) {
+            res.status(200).send(newLink);
+          });
         });
       });
     }
@@ -112,17 +119,22 @@ function(req, res) {
   // else remain in login page with warning: username does not exist
 
   User.query('where', 'username', '=', req.body.username).fetch().then(function(model) {
-    console.log(model);
-    bcrypt.compare(req.body.password, model.get('password'), function(err, match) {
-      if (err) {
-        console.log('Bcrypt error');
-      } else if (match) {
-        req.session.user = req.body.username;
-        res.redirect('/');
-      } else if (!match) {
-        console.log('Invalid username password combination');
-      }
-    });
+    if (!model) {
+      res.redirect('/login');
+    } else {
+      bcrypt.compare(req.body.password, model.get('password'), function(err, match) {
+        if (err) {
+          console.error(err);
+          console.log('Bcrypt error in compare', req.body.password, model.get('password'));
+        } else if (match) {
+          req.session.user = req.body.username;
+          res.redirect('/');
+        } else if (!match) {
+          console.log('Invalid username password combination');
+          res.redirect('/login');
+        }
+      });
+    }
   });
 });
 
