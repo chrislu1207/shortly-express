@@ -272,6 +272,26 @@ describe('', function() {
       });
     });
 
+    it('Signup denies duplicate users', function(done) {
+      var options = {
+        'method': 'POST',
+        'uri': 'http://127.0.0.1:4568/signup',
+        'json': {
+          'username': 'Svnh',
+          'password': 'Svnh'
+        }
+      };
+
+      request(options, function(err, res, body) {
+        expect(res.headers.location).to.equal('/');
+        request(options, function(err, res, body) {
+          expect(res.headers.location).to.equal('/login');
+          done();
+        });
+      });
+
+    });
+
     it('Signup logs in a new user', function(done) {
       var options = {
         'method': 'POST',
@@ -351,9 +371,82 @@ describe('', function() {
       });
     });
 
+    it('Incorrect login information should not be able to login', function(done) {
+      var options = {
+        'method': 'POST',
+        'uri': 'http://127.0.0.1:4568/login',
+        'json': {
+          'username': 'Phillip',
+          'password': 'Fred'
+        }
+      };
+
+      requestWithSession(options, function(err, res, body) {
+        expect(res.headers.location).to.equal('/login');
+        done();
+      });
+    });
+
   }); // 'Account Login'
-  // - Should not allow users with same usernames to signup
   // - Verify a User's private links are being retrieved upon login
   //      - two user's can have the same URL shortened separately
-  // - Incorrect Username/Passwords should be denied
+
+  describe('Account Logout:', function() {
+
+    var requestWithSession = request.defaults({jar: true});
+
+    beforeEach(function(done) {
+      // create a user that we can then log-in with
+      new User({
+        'username': 'Phillip',
+        'password': 'Phillip'
+      }).fetch().then(function() {
+        var options = {
+          'method': 'POST',
+          'followAllRedirects': true,
+          'uri': 'http://127.0.0.1:4568/signup',
+          'json': {
+            'username': 'Phillip',
+            'password': 'Phillip'
+          }
+        };
+        // login via form and save session info
+        requestWithSession(options, function(error, res, body) {
+          if (error) {
+            console.log('Error at: ', res, body);
+          }
+          done();
+        });
+      });
+    });
+
+    it('Logged in users should be able to logout', function(done) {
+      var options = {
+        'method': 'POST',
+        'uri': 'http://127.0.0.1:4568/logout'
+      };
+
+      requestWithSession(options, function(err, res, body) {
+        expect(res.req.path).to.equal('/logout');
+        done();
+      });
+
+    });
+
+  });
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
