@@ -68,7 +68,7 @@ describe('', function() {
       new User({
         'username': 'Phillip',
         'password': 'Phillip'
-      }).save().then(function() {
+      }).fetch().then(function() {
         var options = {
           'method': 'POST',
           'followAllRedirects': true,
@@ -299,7 +299,7 @@ describe('', function() {
       new User({
         'username': 'Phillip',
         'password': 'Phillip'
-      }).save().then(function() {
+      }).fetch().then(function() {
         var options = {
           'method': 'POST',
           'followAllRedirects': true,
@@ -352,5 +352,8 @@ describe('', function() {
     });
 
   }); // 'Account Login'
-
+  // - Should not allow users with same usernames to signup
+  // - Verify a User's private links are being retrieved upon login
+  //      - two user's can have the same URL shortened separately
+  // - Incorrect Username/Passwords should be denied
 });

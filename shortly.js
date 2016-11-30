@@ -50,13 +50,12 @@ function(req, res) {
 app.get('/links', 
 function(req, res) {
   if (req.session.user) {
-    // Links.reset().fetch().then(function(links) {
-    //   res.status(200).send(links.models);
-    // });
     User.query('where', 'username', '=', req.session.user).fetch().then(function(model) {
-      Links.query('where', 'userId', '=', model.get('id')).fetch().then(function(links) {
-        res.status(200).send(links.models);
-      });
+      if (model) {
+        Links.query('where', 'userId', '=', model.get('id')).fetch().then(function(links) {
+          res.status(200).send(links.models);
+        });
+      }
     });
   } else {
     res.redirect('/login');
@@ -72,26 +71,30 @@ function(req, res) {
     return res.sendStatus(404);
   }
 
-  new Link({ url: uri }).fetch().then(function(found) {
-    if (found) {
-      res.status(200).send(found.attributes);
+  User.query('where', 'username', '=', req.session.user).fetch().then(function(model) {
+    if (!model) {
+      res.redirect('/login');
     } else {
-      util.getUrlTitle(uri, function(err, title) {
-        if (err) {
-          console.log('Error reading URL heading: ', err);
-          return res.sendStatus(404);
-        }
-        User.query('where', 'username', '=', req.session.user).fetch().then(function(model) {
-          Links.create({
-            url: uri,
-            title: title,
-            baseUrl: req.headers.origin,
-            userId: model.get('id')
-          })
-          .then(function(newLink) {
-            res.status(200).send(newLink);
+      new Link ({url: uri, userId: model.get('id')}).fetch().then(function(found) {
+        if (found) {
+          res.status(200).send(found.attributes);
+        } else {
+          util.getUrlTitle(uri, function(err, title) {
+            if (err) {
+              console.log('Error reading URL heading: ', err);
+              return res.sendStatus(404);
+            }
+            Links.create({
+              url: uri,
+              title: title,
+              baseUrl: req.headers.origin,
+              userId: model.get('id')
+            })
+            .then(function(newLink) {
+              res.status(200).send(newLink);
+            });
           });
-        });
+        }
       });
     }
   });
@@ -114,17 +117,12 @@ function(req, res) {
 
 app.post('/login',
 function(req, res) {
-  // query db for req.body.username to see if username exists
-  // if exists, compare password with bcrypt.compare
-  // else remain in login page with warning: username does not exist
-
   User.query('where', 'username', '=', req.body.username).fetch().then(function(model) {
     if (!model) {
       res.redirect('/login');
     } else {
       bcrypt.compare(req.body.password, model.get('password'), function(err, match) {
         if (err) {
-          console.error(err);
           console.log('Bcrypt error in compare', req.body.password, model.get('password'));
         } else if (match) {
           req.session.user = req.body.username;
@@ -145,23 +143,23 @@ function(req, res) {
 
 app.post('/signup',
 function(req, res) {
-  // console.log(req.body);
   var username = req.body.username;
   var password = req.body.password;
-  new User({username: username, password: password}).fetch().then(function(exists) {
-    if (exists) {
-      res.status(200).send(exists.attributes);
+  User.query('where', 'username', '=', req.body.username).fetch().then(function(found) {
+    if (found) {
+      res.redirect('/login');
+      // res.status(200).send(found.attributes);
     } else {
-      // console.log('exists is: ', exists);
-      Users.create({
-        username: username,
-        password: password
-      })
-      .then(function(newUser) {
-        // console.log('Welcome new user: ', newUser);
-        req.session.user = newUser.attributes.username;
-        res.redirect('/');
-        res.status(200).send(newUser);
+      new User({username: username, password: password}).fetch().then(function() {
+        Users.create({
+          username: username,
+          password: password
+        })
+        .then(function(newUser) {
+          req.session.user = newUser.attributes.username;
+          res.redirect('/');
+          // res.status(200).send(newUser);
+        });
       });
     }
   });
